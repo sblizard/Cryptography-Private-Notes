@@ -128,3 +128,16 @@ class PrivNotes:
         h = hmac.HMAC(self.source_key, hashes.SHA256())
         h.update(label)
         return h.finalize()
+
+    def _encode_title(self, key, title) -> bytes:
+        """Encodes a title using HMAC-SHA256.
+
+        Args:
+          key (bytes) : key used for encoding
+          title (str) : title to encode
+        Returns:
+          output (bytes) : encoded title
+        """
+        h = hmac.HMAC(key, hashes.SHA256())
+        h.update(bytes(title, "utf-8"))
+        return h.finalize()
