@@ -2,6 +2,7 @@ import pickle
 import os
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hmac
 
 
 class PrivNotes:
@@ -37,6 +38,10 @@ class PrivNotes:
         )
 
         self.source_key = kdf.derive(password_bytes)
+
+        self.k_title = self._prf(b"TITLE-KEY")
+        self.k_enc = self._prf(b"ENC-KEY")
+        self.k_nonce = self._prf(b"NONCE-KEY")
 
         self.kvs = {}
         if data is not None:
@@ -106,3 +111,17 @@ class PrivNotes:
             return True
 
         return False
+
+    def _prf(self, label: bytes) -> bytes:
+        """A pseudo-random function based on HMAC-SHA256.
+
+        Args:
+            label (bytes) : the input to the PRF
+
+        Returns:
+            bytes : the output of the PRF
+        """
+        h = hmac.HMAC(self.source_key, hashes.SHA256())
+        h.update(label)
+
+        return h.finalize()
