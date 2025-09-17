@@ -4,6 +4,7 @@
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import hmac
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # built-in
 import pickle
@@ -48,6 +49,8 @@ class PrivNotes:
         self.k_enc = self._prf(b"ENC-KEY")
         self.k_nonce = self._prf(b"NONCE-KEY")
 
+        self.aesgcm = AESGCM(self.k_enc)
+
         self.kvs = {}
         if data is not None:
             self.kvs = pickle.loads(bytes.fromhex(data))
@@ -66,7 +69,7 @@ class PrivNotes:
         """
         return pickle.dumps(self.kvs).hex(), ""
 
-    def get(self, title):
+    def get(self, title: str):
         """Fetches the note associated with a title.
 
         Args:
@@ -80,7 +83,7 @@ class PrivNotes:
             return self.kvs[title]
         return None
 
-    def set(self, title, note):
+    def set(self, title: str, note: str):
         """Associates a note with a title and adds it to the database
         (or updates the associated note if the title is already
         present in the database).
@@ -100,7 +103,7 @@ class PrivNotes:
 
         self.kvs[title] = note
 
-    def remove(self, title):
+    def remove(self, title: str):
         """Removes the note for the requested title from the database.
 
         Args:
@@ -117,7 +120,7 @@ class PrivNotes:
 
         return False
 
-    def _prf(self, label):
+    def _prf(self, label: bytes) -> bytes:
         """Computes a pseudo-random function (PRF) using HMAC-SHA256.
 
         Args:
@@ -129,7 +132,7 @@ class PrivNotes:
         h.update(label)
         return h.finalize()
 
-    def _encode_title(self, key, title) -> bytes:
+    def _encode_title(self, key: bytes, title: str) -> bytes:
         """Encodes a title using HMAC-SHA256.
 
         Args:
@@ -155,7 +158,16 @@ class PrivNotes:
         """
         if len(message) > max_len:
             raise ValueError("Message too long to pad")
-        return message + b"\x00" * (max_len - len(message))
+
+        if len(message) == max_len:
+            # If message is exactly max_len, add another full block of nulls
+            padded_message = message + b"\x00" * max_len
+        else:
+            # Normal padding to reach max_len
+            padding_length = max_len - len(message)
+            padded_message = message + b"\x00" * padding_length
+
+        return padded_message
 
     def _unpad_fixed(self, padded: bytes) -> bytes:
         """Remove null padding.
@@ -170,3 +182,49 @@ class PrivNotes:
         if padded[-1] != 0:
             raise ValueError("Message is not properly padded")
         return padded.rstrip(b"\x00")
+
+    def encrypt_plaintext(self, note: str, nonce: bytes) -> bytes:
+        """Encrypts a plaintext message using AES-GCM.
+
+        Args:
+          plaintext (str) : plaintext message to encrypt
+          nonce (bytes) : nonce for encryption
+        Returns:
+          ciphertext (bytes) : encrypted message
+        """
+
+        note_bytes: bytes = note.encode("ascii")
+        padded: bytes = self._pad_fixed(note_bytes)
+
+        ciphertext: bytes = self.aesgcm.encrypt(nonce, padded, None)
+
+        return ciphertext
+
+    def decrypt_ciphertext(self, ciphertext: bytes, nonce: bytes) -> str:
+        """Decrypts a ciphertext message using AES-GCM.
+
+        Args:
+          ciphertext (bytes) : ciphertext message to decrypt
+          nonce (bytes) : nonce for decryption
+        Returns:
+          plaintext (str) : decrypted message
+        """
+
+        padded: bytes = self.aesgcm.decrypt(nonce, ciphertext, None)
+
+        return self._unpad_fixed(padded).decode("ascii")
+
+    def _derive_nonce(self, title: str, counter: int) -> bytes:
+        """
+        Derive a deterministic 12-byte AES-GCM nonce for a given title and counter.
+        Args:
+          title (str) : the title associated with the note
+          counter (int) : a counter to ensure uniqueness
+        Returns:
+          nonce (bytes) : a 12-byte nonce
+        """
+        msg = f"{title}:{counter}".encode("ascii")
+        h = hmac.HMAC(self.k_nonce, hashes.SHA256())
+        h.update(msg)
+        digest = h.finalize()
+        return digest[:12]

@@ -21,7 +21,10 @@ def test_pad_fixed_exact_length():
     priv_notes = PrivNotes(password="test")
     message = b"a" * 2048
     padded = priv_notes._pad_fixed(message)
-    assert padded == message
+    # When message is exactly max_len, it gets an additional full block of nulls
+    assert len(padded) == 4096  # 2048 + 2048
+    assert padded[:2048] == message
+    assert padded[2048:] == b"\x00" * 2048
 
 
 def test_pad_fixed_exceeding_length():
@@ -75,6 +78,15 @@ def test_unpad_fixed_empty_message():
     padded = b"\x00" * 2048
     unpadded = priv_notes._unpad_fixed(padded)
     assert unpadded == b""
+
+
+def test_unpad_fixed_max_length_message():
+    priv_notes = PrivNotes(password="test")
+    # Test unpadding a message that was exactly max length (has extra null block)
+    original_message = b"a" * 2048
+    padded = original_message + b"\x00" * 2048  # 4096 bytes total
+    unpadded = priv_notes._unpad_fixed(padded)
+    assert unpadded == original_message
 
 
 def test_unpad_fixed_improper_padding():
