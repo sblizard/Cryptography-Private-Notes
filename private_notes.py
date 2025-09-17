@@ -1,8 +1,13 @@
-import pickle
-import os
+# internal
+
+# external
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import hmac
+
+# built-in
+import pickle
+import os
 
 
 class PrivNotes:
