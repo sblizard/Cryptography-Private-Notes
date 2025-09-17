@@ -112,16 +112,14 @@ class PrivNotes:
 
         return False
 
-    def _prf(self, label: bytes) -> bytes:
-        """A pseudo-random function based on HMAC-SHA256.
+    def _prf(self, label):
+        """Computes a pseudo-random function (PRF) using HMAC-SHA256.
 
         Args:
-            label (bytes) : the input to the PRF
-
+          input_bytes (bytes) : input to the PRF
         Returns:
-            bytes : the output of the PRF
+          output (bytes) : output of the PRF
         """
         h = hmac.HMAC(self.source_key, hashes.SHA256())
         h.update(label)
-
         return h.finalize()
