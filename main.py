@@ -30,7 +30,7 @@ for title in kvs:
 note = priv_notes.get("non-existent")
 if note is not None:
     error(
-        "get failed for title non-existent (expected None, received %s)" % note,
+        ("failed for title nonexistent (expected None, received %s)" % note),
     )
 
 print("Trying to remove notes")
