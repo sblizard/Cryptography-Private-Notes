@@ -1,6 +1,6 @@
 from private_notes import PrivNotes
 
-import re
+# import re
 
 
 def error(s):
@@ -29,7 +29,9 @@ for title in kvs:
         )
 note = priv_notes.get("non-existent")
 if note is not None:
-    error("get failed for title non-existent (expected None, received %s)" % note)
+    error(
+        "get failed for title non-existent (expected None, received %s)" % note,
+    )
 
 print("Trying to remove notes")
 if not priv_notes.remove("Groceries"):
