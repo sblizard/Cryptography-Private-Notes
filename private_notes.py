@@ -141,3 +141,32 @@ class PrivNotes:
         h = hmac.HMAC(key, hashes.SHA256())
         h.update(bytes(title, "utf-8"))
         return h.finalize()
+
+    def _pad_fixed(self, message: bytes, max_len: int = 2048) -> bytes:
+        """Pad message to fixed length with null bytes.
+
+        Args:
+          message (bytes) : message to pad
+          max_len (int) : maximum length of the padded message
+        Returns:
+          padded (bytes) : padded message
+        Raises:
+          ValueError : if message is too long to pad
+        """
+        if len(message) > max_len:
+            raise ValueError("Message too long to pad")
+        return message + b"\x00" * (max_len - len(message))
+
+    def _unpad_fixed(self, padded: bytes) -> bytes:
+        """Remove null padding.
+
+        Args:
+          padded (bytes) : padded message
+        Returns:
+          message (bytes) : unpadded message
+        Raises:
+          ValueError : if padded message is not properly padded
+        """
+        if padded[-1] != 0:
+            raise ValueError("Message is not properly padded")
+        return padded.rstrip(b"\x00")
