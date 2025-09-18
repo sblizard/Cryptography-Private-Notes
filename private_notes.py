@@ -104,16 +104,6 @@ class PrivNotes:
         self.kvs[title] = note
 
     def remove(self, title: str):
-        """Removes the note for the requested title from the database.
-
-        Args:
-          title (str) : the title to remove
-
-        Returns:
-          success (bool) :
-            True if the title was removed and False if the title was
-            not found
-        """
         if title in self.kvs:
             del self.kvs[title]
             return True
@@ -121,41 +111,16 @@ class PrivNotes:
         return False
 
     def _prf(self, label: bytes) -> bytes:
-        """Computes a pseudo-random function (PRF) using HMAC-SHA256.
-
-        Args:
-          input_bytes (bytes) : input to the PRF
-        Returns:
-          output (bytes) : output of the PRF
-        """
         h = hmac.HMAC(self.source_key, hashes.SHA256())
         h.update(label)
         return h.finalize()
 
     def _encode_title(self, key: bytes, title: str) -> bytes:
-        """Encodes a title using HMAC-SHA256.
-
-        Args:
-          key (bytes) : key used for encoding
-          title (str) : title to encode
-        Returns:
-          output (bytes) : encoded title
-        """
         h = hmac.HMAC(key, hashes.SHA256())
         h.update(bytes(title, "utf-8"))
         return h.finalize()
 
     def _pad_fixed(self, message: bytes, max_len: int = 2048) -> bytes:
-        """Pad message to fixed length with null bytes.
-
-        Args:
-          message (bytes) : message to pad
-          max_len (int) : maximum length of the padded message
-        Returns:
-          padded (bytes) : padded message
-        Raises:
-          ValueError : if message is too long to pad
-        """
         if len(message) > max_len:
             raise ValueError("Message too long to pad")
 
@@ -170,29 +135,11 @@ class PrivNotes:
         return padded_message
 
     def _unpad_fixed(self, padded: bytes) -> bytes:
-        """Remove null padding.
-
-        Args:
-          padded (bytes) : padded message
-        Returns:
-          message (bytes) : unpadded message
-        Raises:
-          ValueError : if padded message is not properly padded
-        """
         if padded[-1] != 0:
             raise ValueError("Message is not properly padded")
         return padded.rstrip(b"\x00")
 
     def encrypt_plaintext(self, note: str, nonce: bytes) -> bytes:
-        """Encrypts a plaintext message using AES-GCM.
-
-        Args:
-          plaintext (str) : plaintext message to encrypt
-          nonce (bytes) : nonce for encryption
-        Returns:
-          ciphertext (bytes) : encrypted message
-        """
-
         note_bytes: bytes = note.encode("ascii")
         padded: bytes = self._pad_fixed(note_bytes)
 
@@ -201,28 +148,11 @@ class PrivNotes:
         return ciphertext
 
     def decrypt_ciphertext(self, ciphertext: bytes, nonce: bytes) -> str:
-        """Decrypts a ciphertext message using AES-GCM.
-
-        Args:
-          ciphertext (bytes) : ciphertext message to decrypt
-          nonce (bytes) : nonce for decryption
-        Returns:
-          plaintext (str) : decrypted message
-        """
-
         padded: bytes = self.aesgcm.decrypt(nonce, ciphertext, None)
 
         return self._unpad_fixed(padded).decode("ascii")
 
     def _derive_nonce(self, title: str, counter: int) -> bytes:
-        """
-        Derive a deterministic 12-byte AES-GCM nonce for a given title and counter.
-        Args:
-          title (str) : the title associated with the note
-          counter (int) : a counter to ensure uniqueness
-        Returns:
-          nonce (bytes) : a 12-byte nonce
-        """
         msg = f"{title}:{counter}".encode("ascii")
         h = hmac.HMAC(self.k_nonce, hashes.SHA256())
         h.update(msg)
