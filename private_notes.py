@@ -67,7 +67,11 @@ class PrivNotes:
             a hex-encoded checksum for the data used to protect
             against rollback attacks (up to 32 characters in length)
         """
-        return pickle.dumps(self.kvs).hex(), ""
+        raw = pickle.dumps(self.kvs)
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(raw)
+        checksum = digest.finalize()
+        return raw.hex(), checksum.hex()
 
     def get(self, title: str):
         """Fetches the note associated with a title.
