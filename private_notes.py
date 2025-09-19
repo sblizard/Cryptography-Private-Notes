@@ -53,7 +53,20 @@ class PrivNotes:
 
         self.kvs = {}
         if data is not None:
-            self.kvs = pickle.loads(bytes.fromhex(data))
+            try:
+                raw = bytes.fromhex(data)
+
+                if checksum is not None:
+                    digest = hashes.Hash(hashes.SHA256())
+                    digest.update(raw)
+                    expected = digest.finalize().hex()
+                    if checksum != expected:
+                        raise ValueError("Checksum verification failed")
+
+                self.kvs = pickle.loads(raw)
+
+            except Exception as e:
+                raise ValueError("Malformed data or tampering detected") from e
 
     def dump(self):
         """Computes a serialized representation of the notes database
