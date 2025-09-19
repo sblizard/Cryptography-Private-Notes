@@ -227,10 +227,10 @@ class TestPrivNotesIntegration:
 
         # Test 1: Wrong password - create more comprehensive test
         wrong_password_notes = PrivNotes(self.alt_password, data, checksum)
-        
+
         # Method 1: The title hashing will be different, so get() returns None
         assert wrong_password_notes.get("Secret") is None
-        
+
         # Method 2: Test direct decryption failure with wrong keys
         # Get the ciphertext from the loaded kvs and try to decrypt with wrong-derived keys
         if wrong_password_notes.kvs:

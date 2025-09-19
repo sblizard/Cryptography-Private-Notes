@@ -55,13 +55,13 @@ def test_prf_same_keys():
 
 def test_prf_different_instances():
     """Test that different instances have different keys."""
-    
+
     password = "password123"
-    
+
     # Initialize two separate instances (no data sharing)
     notes1 = PrivNotes(password)
     notes2 = PrivNotes(password)
-    
+
     # Ensure that the derived keys are different due to different salts
     assert (
         notes1.source_key != notes2.source_key
