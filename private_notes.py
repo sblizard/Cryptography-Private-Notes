@@ -117,7 +117,7 @@ class PrivNotes:
 
         ciphertext, counter = self.kvs[title_key]
         nonce = self._derive_nonce(title, counter)
-        return self.decrypt_ciphertext(ciphertext, nonce)
+        return self.decrypt_ciphertext(ciphertext, nonce, title_key)
 
     def set(self, title: str, note: str):
         """Associates a note with a title and adds it to the database
@@ -145,7 +145,7 @@ class PrivNotes:
 
         nonce = self._derive_nonce(title, counter)
 
-        ciphertext = self.encrypt_plaintext(note, nonce)
+        ciphertext = self.encrypt_plaintext(note, nonce, title_key)
 
         self.kvs[title_key] = (ciphertext, counter)
 
@@ -184,17 +184,17 @@ class PrivNotes:
             raise ValueError("Message is not properly padded")
         return padded.rstrip(b"\x00")
 
-    def encrypt_plaintext(self, note: str, nonce: bytes) -> bytes:
+    def encrypt_plaintext(self, note: str, nonce: bytes, title_key: bytes) -> bytes:
         note_bytes: bytes = note.encode("ascii")
         padded: bytes = self._pad_fixed(note_bytes)
 
-        ciphertext: bytes = self.aesgcm.encrypt(nonce, padded, None)
-
+        ciphertext: bytes = self.aesgcm.encrypt(nonce, padded, title_key)
         return ciphertext
 
-    def decrypt_ciphertext(self, ciphertext: bytes, nonce: bytes) -> str:
-        padded: bytes = self.aesgcm.decrypt(nonce, ciphertext, None)
-
+    def decrypt_ciphertext(
+        self, ciphertext: bytes, nonce: bytes, title_key: bytes
+    ) -> str:
+        padded: bytes = self.aesgcm.decrypt(nonce, ciphertext, title_key)
         return self._unpad_fixed(padded).decode("ascii")
 
     def _derive_nonce(self, title: str, counter: int) -> bytes:

@@ -11,28 +11,31 @@ import os
 def test_encrypt_decrypt_basic():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
+    title_key = os.urandom(32)  # Generate title key for testing
     plaintext = "hello world"
-    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce)
-    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce)
+    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
+    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce, title_key)
     assert decrypted == plaintext
 
 
 def test_encrypt_decrypt_empty_message():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
+    title_key = os.urandom(32)  # Generate title key for testing
     plaintext = ""
-    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce)
-    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce)
+    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
+    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce, title_key)
     assert decrypted == plaintext
 
 
 def test_encrypt_decrypt_max_length():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
+    title_key = os.urandom(32)  # Generate title key for testing
     plaintext = "a" * 2048  # Full maximum length
 
-    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce)
-    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce)
+    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
+    decrypted = priv_notes.decrypt_ciphertext(ciphertext, nonce, title_key)
     assert decrypted == plaintext
 
 
@@ -46,32 +49,36 @@ def test_pad_fixed_max_length_gets_extra_block():
     assert padded[2048:] == b"\x00" * 2048
 
 
-def test_encrypt_exceeding_max_length():
+def test_encrypt_plaintext_too_long():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
-    plaintext = "a" * 2049  # This should exceed the maximum length
+    title_key = os.urandom(32)  # Generate title key for testing
+    plaintext = "a" * 2049  # One character over max
+
     with pytest.raises(ValueError, match="Message too long to pad"):
-        priv_notes.encrypt_plaintext(plaintext, nonce)
+        priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
 
 
 def test_decrypt_invalid_nonce():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
+    title_key = os.urandom(32)  # Generate title key for testing
     invalid_nonce = os.urandom(12)
     plaintext = "hello world"
-    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce)
+    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
     with pytest.raises(Exception):
-        priv_notes.decrypt_ciphertext(ciphertext, invalid_nonce)
+        priv_notes.decrypt_ciphertext(ciphertext, invalid_nonce, title_key)
 
 
 def test_decrypt_corrupted_ciphertext():
     priv_notes = PrivNotes(password="test")
     nonce = os.urandom(12)
+    title_key = os.urandom(32)  # Generate title key for testing
     plaintext = "hello world"
-    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce)
+    ciphertext = priv_notes.encrypt_plaintext(plaintext, nonce, title_key)
     corrupted_ciphertext = ciphertext[:-1] + b"0"
     with pytest.raises(Exception):
-        priv_notes.decrypt_ciphertext(corrupted_ciphertext, nonce)
+        priv_notes.decrypt_ciphertext(corrupted_ciphertext, nonce, title_key)
 
 
 def test_derive_nonce_basic():

@@ -239,7 +239,7 @@ class TestPrivNotesIntegration:
             # Try to decrypt with wrong-derived nonce (this should fail)
             with pytest.raises(Exception):  # InvalidTag or similar crypto error
                 nonce = wrong_password_notes._derive_nonce("Secret", counter)
-                wrong_password_notes.decrypt_ciphertext(ciphertext, nonce)
+                wrong_password_notes.decrypt_ciphertext(ciphertext, nonce, first_key)
 
         # Test 2: Tampered data
         data_bytes = bytes.fromhex(data)
@@ -416,7 +416,7 @@ class TestPrivNotesIntegration:
             nonce = notes._derive_nonce(title, counter)
 
             # Decrypt manually
-            decrypted = notes.decrypt_ciphertext(ciphertext, nonce)
+            decrypted = notes.decrypt_ciphertext(ciphertext, nonce, title_key)
             assert decrypted == test_note
 
     def test_malformed_data_scenarios(self):
