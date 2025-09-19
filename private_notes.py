@@ -79,9 +79,13 @@ class PrivNotes:
           note (str) : the note associated with the requested title if
                            it exists and otherwise None
         """
-        if title in self.kvs:
-            return self.kvs[title]
-        return None
+        title_key = self._encode_title(self.k_title, title)
+        if title_key not in self.kvs:
+            return None
+
+        ciphertext, counter = self.kvs[title_key]
+        nonce = self._derive_nonce(title, counter)
+        return self.decrypt_ciphertext(ciphertext, nonce)
 
     def set(self, title: str, note: str):
         """Associates a note with a title and adds it to the database
@@ -101,11 +105,22 @@ class PrivNotes:
         if len(note) > self.MAX_NOTE_LEN:
             raise ValueError("Maximum note length exceeded")
 
-        self.kvs[title] = note
+        title_key = self._encode_title(self.k_title, title)
+        counter = 0
+        if title_key in self.kvs:
+            _, counter = self.kvs[title_key]
+            counter += 1
+
+        nonce = self._derive_nonce(title, counter)
+
+        ciphertext = self.encrypt_plaintext(note, nonce)
+
+        self.kvs[title_key] = (ciphertext, counter)
 
     def remove(self, title: str):
-        if title in self.kvs:
-            del self.kvs[title]
+        title_key = self._encode_title(self.k_title, title)
+        if title_key in self.kvs:
+            del self.kvs[title_key]
             return True
 
         return False
@@ -125,10 +140,8 @@ class PrivNotes:
             raise ValueError("Message too long to pad")
 
         if len(message) == max_len:
-            # If message is exactly max_len, add another full block of nulls
             padded_message = message + b"\x00" * max_len
         else:
-            # Normal padding to reach max_len
             padding_length = max_len - len(message)
             padded_message = message + b"\x00" * padding_length
 
@@ -158,3 +171,8 @@ class PrivNotes:
         h.update(msg)
         digest = h.finalize()
         return digest[:12]
+
+    def _title_key(self, title: str) -> bytes:
+        h = hmac.HMAC(self.k_title, hashes.SHA256())
+        h.update(title.encode("ascii"))
+        return h.finalize()
