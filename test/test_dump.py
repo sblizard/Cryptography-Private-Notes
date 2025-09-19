@@ -30,9 +30,14 @@ class TestDump:
         # Checksum should be 64 characters (32 bytes in hex)
         assert len(checksum) == 64
 
-        # Data should represent an empty dictionary when decoded
+        # Data should represent a dictionary with salt and empty kvs when decoded
         decoded_data = pickle.loads(bytes.fromhex(data))
-        assert decoded_data == {}
+        assert isinstance(decoded_data, dict)
+        assert "salt" in decoded_data
+        assert "kvs" in decoded_data
+        assert decoded_data["kvs"] == {}
+        assert isinstance(decoded_data["salt"], bytes)
+        assert len(decoded_data["salt"]) == 16
 
     def test_dump_single_note(self):
         """Test dumping database with a single note."""
@@ -52,9 +57,15 @@ class TestDump:
 
         # Verify data can be decoded and contains our note
         decoded_data = pickle.loads(bytes.fromhex(data))
-        assert len(decoded_data) == 1
+        assert isinstance(decoded_data, dict)
+        assert "salt" in decoded_data
+        assert "kvs" in decoded_data
+        assert len(decoded_data["kvs"]) == 1
+        assert isinstance(decoded_data["salt"], bytes)
 
-        # Note: Cannot test reconstruction due to salt regeneration in constructor
+        # Now we can test reconstruction since salt is preserved!
+        new_notes = PrivNotes(self.password, data, checksum)
+        assert new_notes.get(title) == note
 
     def test_dump_multiple_notes(self):
         """Test dumping database with multiple notes."""
@@ -77,9 +88,15 @@ class TestDump:
 
         # Verify data contains all notes
         decoded_data = pickle.loads(bytes.fromhex(data))
-        assert len(decoded_data) == len(notes_data)
+        assert isinstance(decoded_data, dict)
+        assert "salt" in decoded_data
+        assert "kvs" in decoded_data
+        assert len(decoded_data["kvs"]) == len(notes_data)
 
-        # Note: Cannot test reconstruction due to salt regeneration in constructor
+        # Now we can test reconstruction!
+        new_notes = PrivNotes(self.password, data, checksum)
+        for title, expected_note in notes_data.items():
+            assert new_notes.get(title) == expected_note
 
     def test_dump_after_update(self):
         """Test that dump reflects updates to existing notes."""
@@ -101,6 +118,10 @@ class TestDump:
 
         # Verify the current instance still has the updated note
         assert self.notes.get(title) == updated_note
+
+        # Now we can test that the updated data reconstructs correctly
+        new_notes = PrivNotes(self.password, data2, checksum2)
+        assert new_notes.get(title) == updated_note
 
     def test_dump_deterministic_for_same_data(self):
         """Test that dump produces consistent results for the same data."""
@@ -128,7 +149,9 @@ class TestDump:
         assert isinstance(checksum, str)
         assert len(checksum) == 64
 
-        # Verify the note was stored (can't test reconstruction due to salt issue)
+        # Verify the note was stored (now we can test reconstruction!)
+        new_notes = PrivNotes(self.password, data, checksum)
+        assert new_notes.get(title) == large_note
         assert self.notes.get(title) == large_note
 
     def test_dump_with_special_characters(self):
@@ -145,8 +168,10 @@ class TestDump:
         assert isinstance(checksum, str)
         assert len(checksum) == 64
 
-        # Verify the note was stored correctly
+        # Verify the note was stored correctly and can be reconstructed
         assert self.notes.get(title) == note
+        new_notes = PrivNotes(self.password, data, checksum)
+        assert new_notes.get(title) == note
 
     def test_dump_with_ascii_only(self):
         """Test dumping notes with ASCII characters only (since implementation uses ASCII encoding)."""
@@ -161,8 +186,10 @@ class TestDump:
         assert isinstance(checksum, str)
         assert len(checksum) == 64
 
-        # Verify the note was stored correctly
+        # Verify the note was stored correctly and can be reconstructed
         assert self.notes.get(title) == note
+        new_notes = PrivNotes(self.password, data, checksum)
+        assert new_notes.get(title) == note
 
     def test_dump_empty_string_note(self):
         """Test dumping with an empty string note."""
@@ -177,8 +204,10 @@ class TestDump:
         assert isinstance(checksum, str)
         assert len(checksum) == 64
 
-        # Verify the empty note was stored correctly
+        # Verify the empty note was stored correctly and can be reconstructed
         assert self.notes.get(title) == note
+        new_notes = PrivNotes(self.password, data, checksum)
+        assert new_notes.get(title) == note
 
     def test_dump_checksum_integrity(self):
         """Test that checksum changes when data is modified."""
@@ -211,7 +240,10 @@ class TestDump:
 
         # Verify data represents current state
         decoded_data = pickle.loads(bytes.fromhex(data))
-        assert len(decoded_data) == 1
+        assert isinstance(decoded_data, dict)
+        assert "salt" in decoded_data
+        assert "kvs" in decoded_data
+        assert len(decoded_data["kvs"]) == 1
 
         # Modify original instance
         self.notes.set(new_title, new_note)
@@ -223,8 +255,20 @@ class TestDump:
 
         # New dump should have both notes
         decoded_data2 = pickle.loads(bytes.fromhex(data2))
-        assert len(decoded_data2) == 2
+        assert isinstance(decoded_data2, dict)
+        assert "salt" in decoded_data2
+        assert "kvs" in decoded_data2
+        assert len(decoded_data2["kvs"]) == 2
 
         # Original instance should have both notes
         assert self.notes.get(original_title) == original_note
         assert self.notes.get(new_title) == new_note
+
+        # Test reconstruction of both states
+        notes1 = PrivNotes(self.password, data, checksum)
+        assert notes1.get(original_title) == original_note
+        assert notes1.get(new_title) is None
+
+        notes2 = PrivNotes(self.password, data2, checksum2)
+        assert notes2.get(original_title) == original_note
+        assert notes2.get(new_title) == new_note

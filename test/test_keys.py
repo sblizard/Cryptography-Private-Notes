@@ -43,11 +43,32 @@ def test_prf_same_keys():
     notes1 = PrivNotes(password)
     notes2 = PrivNotes(password, data=notes1.dump()[0])
 
-    # Ensure that the derived keys are the same
+    # Ensure that the derived keys are the same when loading from same data
+    assert (
+        notes1.source_key == notes2.source_key
+    ), "Source keys should be the same when loading from same data (salt preserved)"
+    assert notes1.k_enc == notes2.k_enc, "Encryption keys should be the same"
+    assert notes1.k_nonce == notes2.k_nonce, "Nonce keys should be the same"
+    assert notes1.k_title == notes2.k_title, "Title keys should be the same"
+    assert notes1.k_enc != notes1.k_nonce, "k_enc and k_nonce should be unique"
+
+
+def test_prf_different_instances():
+    """Test that different instances have different keys."""
+    
+    password = "password123"
+    
+    # Initialize two separate instances (no data sharing)
+    notes1 = PrivNotes(password)
+    notes2 = PrivNotes(password)
+    
+    # Ensure that the derived keys are different due to different salts
     assert (
         notes1.source_key != notes2.source_key
     ), "Source keys should differ due to different salts"
-    assert notes1.k_enc != notes1.k_nonce, "k_enc and k_nonce should be unique"
+    assert notes1.k_enc != notes2.k_enc, "Encryption keys should be different"
+    assert notes1.k_nonce != notes2.k_nonce, "Nonce keys should be different"
+    assert notes1.k_title != notes2.k_title, "Title keys should be different"
     assert notes1.k_enc != notes1.k_title, "k_enc and k_title should be unique"
     assert notes1.k_nonce != notes1.k_title, "k_nonce and k_title not unique"
     assert (

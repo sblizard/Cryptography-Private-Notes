@@ -31,7 +31,36 @@ class PrivNotes:
           ValueError : malformed serialized format
         """
 
-        salt = os.urandom(16)
+        salt = None
+        if data is not None:
+            try:
+                raw = bytes.fromhex(data)
+
+                if checksum is not None:
+                    digest = hashes.Hash(hashes.SHA256())
+                    digest.update(raw)
+                    expected = digest.finalize().hex()
+                    if checksum != expected:
+                        raise ValueError("Checksum verification failed")
+
+                loaded_data = pickle.loads(raw)
+
+                if not (
+                    isinstance(loaded_data, dict)
+                    and "salt" in loaded_data
+                    and "kvs" in loaded_data
+                ):
+                    raise ValueError("Invalid data format")
+
+                salt = loaded_data["salt"]
+                self.kvs = loaded_data["kvs"]
+
+            except Exception as e:
+                raise ValueError("Malformed data or tampering detected") from e
+
+        if salt is None:
+            salt = os.urandom(16)
+
         self.salt = salt
 
         password_bytes = bytes(password, "ascii")
@@ -51,22 +80,8 @@ class PrivNotes:
 
         self.aesgcm = AESGCM(self.k_enc)
 
-        self.kvs = {}
-        if data is not None:
-            try:
-                raw = bytes.fromhex(data)
-
-                if checksum is not None:
-                    digest = hashes.Hash(hashes.SHA256())
-                    digest.update(raw)
-                    expected = digest.finalize().hex()
-                    if checksum != expected:
-                        raise ValueError("Checksum verification failed")
-
-                self.kvs = pickle.loads(raw)
-
-            except Exception as e:
-                raise ValueError("Malformed data or tampering detected") from e
+        if data is None:
+            self.kvs = {}
 
     def dump(self):
         """Computes a serialized representation of the notes database
@@ -80,7 +95,7 @@ class PrivNotes:
             a hex-encoded checksum for the data used to protect
             against rollback attacks (up to 32 characters in length)
         """
-        raw = pickle.dumps(self.kvs)
+        raw = pickle.dumps({"salt": self.salt, "kvs": self.kvs})
         digest = hashes.Hash(hashes.SHA256())
         digest.update(raw)
         checksum = digest.finalize()
@@ -183,7 +198,7 @@ class PrivNotes:
         return self._unpad_fixed(padded).decode("ascii")
 
     def _derive_nonce(self, title: str, counter: int) -> bytes:
-        msg = f"{title}:{counter}".encode("ascii")
+        msg = f"{title}:{counter}".encode("utf-8")
         h = hmac.HMAC(self.k_nonce, hashes.SHA256())
         h.update(msg)
         digest = h.finalize()
